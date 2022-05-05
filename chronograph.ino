@@ -1,5 +1,5 @@
 #include <LiquidCrystal.h>
-#define sensorPin 3
+#define laserSensorPin 3
 #define btnDown 12
 #define btnUp 11
 #define btnMain 2
@@ -7,18 +7,18 @@
 LiquidCrystal lcd(4, 5, 6, 7, 8, 9);
 int projectileMass;
 int projectileLenght;
-bool sensorValue;
+int flightTime;
+bool laserDetected;
+bool btnDownPressed;
+bool btnUpPressed;
+bool btnMainPressed;
 
 void setup() {
-  Serial.begin(9600);
   lcd.begin(16, 2);
-  pinMode(sensorPin, INPUT);
+  pinMode(laserSensorPin, INPUT);
   pinMode(btnDown, INPUT);
   pinMode(btnUp, INPUT);
   pinMode(btnMain, INPUT);
-
-  int projectileMass;
-  int projectileLenght;
 }
 
 void loop() {
@@ -26,31 +26,45 @@ void loop() {
   delay(500);
   projectileLenght = getLenght(projectileLenght);
   delay(500);
-  clearDisplay();
-  while (true) {
-   sensorValue = digitalRead(sensorPin);
-   orderToShoot();
-   if (sensorValue == 0 || digitalRead(btnMain) == 1) {
-     break;
-   }
-  }
-  if (sensorValue == 0) {
-    int flightTime = getFlightTime();
+  flightTime = getFlightTime();
+  if (flightTime) {
     writeOutput(projectileMass, projectileLenght, flightTime);
   }
   delay(500);
 }
 
 
-// calculates the flight time of the projectile through the laser
+
 int getFlightTime() {
-  int counter = 0;
-  while (sensorValue == 0) {
-    sensorValue = digitalRead(sensorPin);
-    delayMicroseconds(1);
-    counter++;
-   }
-   return counter;
+  int flightTime = 0;
+  clearDisplay();
+  laserDetected = digitalRead(laserSensorPin);
+  if (laserDetected) {
+    showShootSite();
+    btnMainPressed = digitalRead(btnMain);
+    while (laserDetected) {
+      if (btnMainPressed) {
+        clearDisplay();
+        showCancelSite();
+        delay(1000);
+        break;
+      }
+      laserDetected = digitalRead(laserSensorPin);
+      btnMainPressed = digitalRead(btnMain);
+    }
+    if (!btnMainPressed) {
+      long unsigned int startCountingTime = micros();
+      while (!laserDetected) {
+        laserDetected = digitalRead(laserSensorPin);
+      }
+      long unsigned int endCountingTime = micros();
+      flightTime = endCountingTime - startCountingTime;
+      }
+  } else {
+    showErrorSite();
+    delay(3000);
+  }
+  return flightTime;
 }
 
 void writeOutput(int inputMass, int inputLenght, int inputFlightTime) {
@@ -62,16 +76,10 @@ void writeOutput(int inputMass, int inputLenght, int inputFlightTime) {
   float energy = getEnergy(flightSpeed, mass);
 
   clearDisplay();
-  while (digitalRead(btnMain) != 1) {
-    lcd.setCursor(0, 0);
-    lcd.print("Speed: "); 
-    lcd.print(flightSpeed);
-    lcd.print("m/s");
-
-    lcd.setCursor(0, 1);
-    lcd.print("Energy: ");
-    lcd.print(energy);
-    lcd.print("J");
+  btnMainPressed = digitalRead(btnMain);
+  while (!btnMainPressed) {
+    btnMainPressed = digitalRead(btnMain);
+    showOutputSite(flightSpeed, energy);
   }
 }
 
@@ -104,13 +112,55 @@ void showLenghtSite(int lenght) {
    lcd.print("mm ");
   }
 
+void showOutputSite(float flightSpeed, float energy) {
+    lcd.setCursor(0, 0);
+    lcd.print("Speed: "); 
+    lcd.print(flightSpeed);
+    lcd.print("m/s");
+
+    lcd.setCursor(0, 1);
+    lcd.print("Energy: ");
+    lcd.print(energy);
+    lcd.print("J");
+}
+
+void showShootSite() {
+  lcd.setCursor(3, 0);
+  lcd.print("SHOOT NOW!");
+  lcd.setCursor(0, 1);
+  lcd.print("or press button");
+}
+
+void showErrorSite() {
+  lcd.setCursor(0, 0);
+  lcd.print("Laser can't hit");
+  lcd.setCursor(0, 1);
+  lcd.print("the sensor.");
+}
+
+void showCancelSite() {
+  lcd.setCursor(4, 0);
+  lcd.print("Canceled");
+}
+
+void clearDisplay() {
+ lcd.setCursor(0, 0);
+ lcd.print("                ");
+ lcd.setCursor(0, 1);
+ lcd.print("                "); 
+}
+
 int getMass(int mass) {
   clearDisplay();
-  while (digitalRead(btnMain) != 1) {
-    if (digitalRead(btnUp) == 1) {
+  btnMainPressed = digitalRead(btnMain);
+  while (!btnMainPressed) {
+    btnMainPressed = digitalRead(btnMain);
+    btnUpPressed = digitalRead(btnUp);
+    btnDownPressed = digitalRead(btnDown);
+    if (btnUpPressed) {
       mass++;
     }
-    else if (digitalRead(btnDown) == 1 && mass > 0) {
+    else if (btnDownPressed && mass > 0) {
       mass--;
     }
     showMassSite(mass);
@@ -121,29 +171,19 @@ int getMass(int mass) {
 
 int getLenght(int lenght) {
   clearDisplay();
-  while (digitalRead(btnMain) != 1) {
-    if (digitalRead(btnUp) == 1) {
+  btnMainPressed = digitalRead(btnMain);
+  while (!btnMainPressed) {
+    btnMainPressed = digitalRead(btnMain);
+    btnUpPressed = digitalRead(btnUp);
+    btnDownPressed = digitalRead(btnDown);
+    if (btnUpPressed) {
       lenght++;
     }
-    else if (digitalRead(btnDown) == 1 && lenght > 0) {
+    else if (btnDownPressed && lenght > 0) {
       lenght--;
     }
     showLenghtSite(lenght);
     delay(100);
   }
   return lenght;
-}
-
-void orderToShoot() {
-  lcd.setCursor(3, 0);
-  lcd.print("SHOOT NOW!");
-  lcd.setCursor(0, 1);
-  lcd.print("or press button");
-}
-
-void clearDisplay() {
- lcd.setCursor(0, 0);
- lcd.print("                ");
- lcd.setCursor(0, 1);
- lcd.print("                "); 
 }
