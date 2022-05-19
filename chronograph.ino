@@ -7,7 +7,7 @@
 LiquidCrystal lcd(4, 5, 6, 7, 8, 9);
 int projectileMass;
 int projectileLenght;
-int flightTime;
+long unsigned int flightTime;
 bool laserDetected;
 bool btnDownPressed;
 bool btnUpPressed;
@@ -36,7 +36,7 @@ void loop() {
 
 
 int getFlightTime() {
-  int flightTime = 0;
+  long unsigned int flightTime = 0;
   clearDisplay();
   laserDetected = digitalRead(laserSensorPin);
   if (laserDetected) {
@@ -67,7 +67,7 @@ int getFlightTime() {
   return flightTime;
 }
 
-void writeOutput(int inputMass, int inputLenght, int inputFlightTime) {
+void writeOutput(int inputMass, int inputLenght, long unsigned int inputFlightTime) {
   float mass = convertToBasicUnits(inputMass);
   float lenght = convertToBasicUnits(inputLenght);
   float flightTime = convertToBasicUnits(convertToBasicUnits(inputFlightTime));
